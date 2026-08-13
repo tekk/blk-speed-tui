@@ -1,8 +1,8 @@
 # blkspeed
 
 A terminal UI for measuring how fast a disk actually is, on the machine it is
-plugged into. Built for single-board computers — Radxa, Raspberry Pi, NanoPi,
-Orange Pi — and equally at home on an x86 PC or a Mac.
+plugged into. Built for single-board computers - Radxa, Raspberry Pi, NanoPi,
+Orange Pi - and equally at home on an x86 PC or a Mac.
 
 A full run takes well under a minute and never destroys anything.
 
@@ -22,13 +22,17 @@ A full run takes well under a minute and never destroys anything.
  ↑/↓ select   enter start   c cache bypass   t theme   q quit
 ```
 
+## Sample recording
+
+[![asciicast](https://asciinema.org/a/1262949.svg)](https://asciinema.org/a/1262949)
+
 ## Why it is non-destructive
 
 This is the part worth being precise about, because most disk benchmarks are
 not safe to point at a mounted system disk.
 
 - **Reads** open the block device **read-only**. The device is never opened for
-  writing — not once, anywhere in the program.
+  writing - not once, anywhere in the program.
 - **Writes** go to a temporary file on a filesystem mounted from that device,
   and the file is deleted when the run ends. That includes when you quit early,
   cancel with <kbd>Esc</kbd>, or the run fails: the cleanup is tied to the
@@ -46,7 +50,7 @@ Four passes, sharing the time budget evenly:
 | Pass             | Block size | Tells you                              |
 | ---------------- | ---------- | -------------------------------------- |
 | Sequential read  | 4 MiB      | Large-file and boot-image throughput   |
-| Random read      | 4 KiB      | Latency and IOPS — how snappy it feels |
+| Random read      | 4 KiB      | Latency and IOPS - how snappy it feels |
 | Sequential write | 4 MiB      | Bulk copy and logging speed            |
 | Random write     | 4 KiB      | Database and package-manager workloads |
 
@@ -70,7 +74,7 @@ tar xzf blkspeed-v0.1.0-aarch64-unknown-linux-musl.tar.gz
 sudo install -m755 blkspeed-*/blkspeed /usr/local/bin/
 ```
 
-Pick `musl` if you are unsure — those binaries are statically linked and run on
+Pick `musl` if you are unsure - those binaries are statically linked and run on
 any Linux distribution regardless of its glibc version, which matters on older
 SBC images.
 
@@ -84,7 +88,7 @@ SBC images.
 | Apple Silicon Mac                     | `aarch64-apple-darwin`            |
 | Intel Mac                             | `x86_64-apple-darwin`             |
 
-Or build it yourself — the only dependencies are `ratatui` and `libc`:
+Or build it yourself - the only dependencies are `ratatui` and `libc`:
 
 ```sh
 cargo build --release
@@ -100,7 +104,7 @@ blkspeed --target . --json          # headless, machine-readable
 ```
 
 Raw-device reads need root, so run under `sudo` for a full test. Without it,
-every device is marked `🔒 needs root` in the picker — pointing `--target` at a
+every device is marked `🔒 needs root` in the picker - pointing `--target` at a
 directory still gives you a complete filesystem-level measurement as a normal
 user.
 
@@ -152,8 +156,8 @@ blkspeed --target /mnt/sdcard --budget 30 --json
 ## Terminal support
 
 Light and dark terminals are both first-class. The app never paints its own
-background — it leaves the terminal's showing through and themes only the
-foreground — so it inherits your colour scheme instead of fighting it. Detection
+background - it leaves the terminal's showing through and themes only the
+foreground - so it inherits your colour scheme instead of fighting it. Detection
 uses `COLORFGBG` where the terminal sets it, and <kbd>t</kbd> switches manually
 if the guess is wrong.
 
@@ -166,7 +170,7 @@ no flicker even on a slow serial console.
 - **Run it more than once.** SD cards and cheap SSDs have write caches that
   make the first run of a pass look better than sustained performance.
 - **Thermals matter on SBCs.** An NVMe drive in a Pi hat will throttle; a
-  40-second test may not reach that point, which is deliberate — it measures
+  40-second test may not reach that point, which is deliberate - it measures
   what you get in ordinary use.
 - **Random 4 KiB writes are the number to watch** if the board feels slow. A
   card doing 90 MB/s sequential but 2 MB/s random will make a package upgrade
