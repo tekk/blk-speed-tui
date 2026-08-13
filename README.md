@@ -6,6 +6,8 @@ Orange Pi - and equally at home on an x86 PC or a Mac.
 
 A full run takes well under a minute and never destroys anything.
 
+[![asciicast](https://asciinema.org/a/1262949.svg)](https://asciinema.org/a/1262949)
+
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │blkspeed  non-destructive disk speed test   I/O: direct (cache bypassed)      │
@@ -21,10 +23,6 @@ A full run takes well under a minute and never destroys anything.
 └───────────────────────────────────────┘└─────────────────────────────────────┘
  ↑/↓ select   enter start   c cache bypass   t theme   q quit
 ```
-
-## Sample recording
-
-[![asciicast](https://asciinema.org/a/1262949.svg)](https://asciinema.org/a/1262949)
 
 ## Why it is non-destructive
 
