@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["v*"] # tagged builds are covered by release.yml
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --all-targets
+
+      - name: Build release
+        run: cargo build --release
+
+      # Exercises device enumeration and the headless path on a real machine.
+      # The scratch file lives under the runner's workspace, and --budget keeps
+      # it quick; failure here means the binary is broken in practice.
+      - name: Smoke test
+        run: |
+          ./target/release/blkspeed --version
+          ./target/release/blkspeed --list
+          ./target/release/blkspeed --target . --budget 10 --json
+
+  cross-build:
+    name: build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-musl # Radxa, RPi 4/5, NanoPi (64-bit)
+          - armv7-unknown-linux-musleabihf # RPi 2/3, NanoPi (32-bit)
+          - riscv64gc-unknown-linux-gnu # StarFive, Milk-V
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      # Catches target-specific cfg mistakes before a release tag is cut.
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }}

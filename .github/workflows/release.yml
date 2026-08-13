@@ -1,0 +1,162 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and upload (e.g. v0.1.0)"
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # release notes are generated from history
+
+      - id: tag
+        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      # Created as a draft so no half-uploaded release is ever visible; the
+      # publish job flips it once every artifact is attached.
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release already exists, reusing it."
+          else
+            gh release create "${{ steps.tag.outputs.tag }}" \
+              --draft \
+              --title "${{ steps.tag.outputs.tag }}" \
+              --generate-notes
+          fi
+
+  build:
+    name: ${{ matrix.target }}
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ---- Linux x86_64: PCs, mini PCs, x86 SBCs -------------------------
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+          # musl builds are statically linked, so one binary runs on any distro
+          # regardless of its glibc version — the safest choice for old SBC
+          # images still shipping Debian oldstable.
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+
+          # ---- Linux aarch64: Radxa Rock, RPi 3/4/5 (64-bit), NanoPi --------
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+
+          # ---- Linux armv7: RPi 2/3/4 (32-bit OS), NanoPi NEO, Orange Pi ----
+          - target: armv7-unknown-linux-gnueabihf
+            os: ubuntu-latest
+            cross: true
+          - target: armv7-unknown-linux-musleabihf
+            os: ubuntu-latest
+            cross: true
+
+          # ---- Linux armv6: RPi 1 / Zero / Zero W ---------------------------
+          - target: arm-unknown-linux-gnueabihf
+            os: ubuntu-latest
+            cross: true
+
+          # ---- Linux riscv64: StarFive VisionFive, Milk-V ------------------
+          - target: riscv64gc-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+
+          # ---- macOS --------------------------------------------------------
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            cross: false
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            cross: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build
+        run: |
+          if [ "${{ matrix.cross }}" = "true" ]; then
+            cross build --release --locked --target ${{ matrix.target }}
+          else
+            cargo build --release --locked --target ${{ matrix.target }}
+          fi
+
+      - name: Package
+        id: package
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.create-release.outputs.tag }}"
+          NAME="blkspeed-${TAG}-${{ matrix.target }}"
+          mkdir -p "dist/${NAME}"
+          cp "target/${{ matrix.target }}/release/blkspeed" "dist/${NAME}/"
+          cp README.md LICENSE "dist/${NAME}/"
+          tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
+          # Checksums let users verify a download on a machine with no package
+          # manager, which is the normal situation on a freshly flashed SBC.
+          if command -v sha256sum >/dev/null; then
+            (cd dist && sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
+          else
+            (cd dist && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
+          fi
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            "dist/${{ steps.package.outputs.name }}.tar.gz" \
+            "dist/${{ steps.package.outputs.name }}.tar.gz.sha256" \
+            --clobber
+
+  publish:
+    name: Publish release
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Undraft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ needs.create-release.outputs.tag }}" --draft=false

@@ -1,0 +1,26 @@
+[package]
+name = "blk-speed-tui"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+description = "Non-destructive block device read/write speed tester with a rich TUI"
+license = "MIT"
+repository = "https://github.com/tekk/blk-speed-tui"
+readme = "README.md"
+keywords = ["benchmark", "disk", "tui", "storage", "sbc"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "blkspeed"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.29"
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "unwind"
